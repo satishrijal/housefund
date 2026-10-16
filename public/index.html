@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HouseFund</title>
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#faf8f3">
+<link rel="apple-touch-icon" href="icon.svg">
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login" class="login-wrap hidden">
+  <div class="logo">House<span>Fund</span></div>
+  <div class="tagline">One house. Shared expenses. Zero confusion.</div>
+  <input id="li-user" placeholder="Username" autocomplete="username">
+  <input id="li-pass" type="password" placeholder="Password" autocomplete="current-password">
+  <button class="btn green" onclick="doLogin()">Log in</button>
+  <p class="muted" style="text-align:center">Ask your house admin for your login.</p>
+  <div id="li-err" class="muted" style="color:var(--red); text-align:center"></div>
+</div>
+
+<!-- FORCE PASSWORD CHANGE -->
+<div id="forcepw" class="login-wrap hidden">
+  <div class="logo">Set your <span>password</span></div>
+  <div class="tagline">First login — pick a password only you know.</div>
+  <input id="fp-new" type="password" placeholder="New password (6+ characters)">
+  <input id="fp-new2" type="password" placeholder="Repeat new password">
+  <button class="btn green" onclick="doForcePw()">Save password</button>
+  <div id="fp-err" class="muted" style="color:var(--red); text-align:center"></div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+  <div class="topbar">
+    <h1 id="tab-title">Home</h1>
+    <button class="btn ghost small" onclick="doLogout()">Log out</button>
+  </div>
+  <div id="view"></div>
+  <nav class="tabs">
+    <button class="tab on" data-t="home" onclick="go('home')"><span class="ic">⌂</span>Home</button>
+    <button class="tab" data-t="activity" onclick="go('activity')"><span class="ic">≣</span>Activity</button>
+    <button class="tab" data-t="add" onclick="openAdd()"><span class="ic">＋</span>Add</button>
+    <button class="tab" data-t="groceries" onclick="go('groceries')"><span class="ic">🛒</span>Groceries</button>
+    <button class="tab" data-t="house" onclick="go('house')"><span class="ic">👥</span>House</button>
+  </nav>
+</div>
+
+<div id="sheet-root"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

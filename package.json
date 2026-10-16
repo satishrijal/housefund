@@ -1,0 +1,23 @@
+{
+  "name": "housefund",
+  "version": "1.0.0",
+  "description": "HouseFund — shared household expenses for roommates. Zero-dep Node, Postgres/JSON, PWA.",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/ledger.test.js test/api.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "pg": "^8.23.1",
+    "tesseract.js": "^7.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

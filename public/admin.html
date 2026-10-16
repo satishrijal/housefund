@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HouseFund Admin</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="alogin" class="login-wrap hidden">
+  <div class="logo">House<span>Fund</span> Admin</div>
+  <div class="tagline">House admin only.</div>
+  <input id="a-user" placeholder="Admin username" autocomplete="username">
+  <input id="a-pass" type="password" placeholder="Admin password" autocomplete="current-password">
+  <button class="btn" onclick="aLogin()">Log in</button>
+  <div id="a-err" class="muted" style="color:var(--red); text-align:center"></div>
+</div>
+
+<div id="apanel" class="hidden">
+  <div class="topbar"><h1>Admin panel</h1><button class="btn ghost small" onclick="aLogout()">Log out</button></div>
+
+  <div class="card"><h3>Status</h3><div id="a-status" class="muted">…</div></div>
+
+  <div class="card">
+    <div class="row"><h3>Members</h3><button class="btn green small" onclick="aShowNew()">+ New member</button></div>
+    <div id="a-new" class="hidden">
+      <input id="an-name" placeholder="Full name (e.g. Alex)">
+      <input id="an-user" placeholder="Username (e.g. alex)">
+      <input id="an-pass" placeholder="Temp password (blank = auto-generate)">
+      <button class="btn green" onclick="aCreate()">Create account</button>
+      <p class="muted">They'll be asked to set their own password on first login.</p>
+    </div>
+    <div id="a-created"></div>
+    <table class="admin"><thead><tr><th>Name</th><th>Username</th><th></th></tr></thead>
+    <tbody id="a-members"></tbody></table>
+  </div>
+
+  <div class="card">
+    <h3>Monthly target per member</h3>
+    <div class="row"><input id="a-target" type="number" step="1" min="1" style="max-width:140px" placeholder="100">
+    <button class="btn green small" onclick="aTarget()">Save</button></div>
+  </div>
+
+  <div class="card">
+    <h3>Backup</h3>
+    <p class="muted">Downloads everything — members, ledger, bills, lists, receipts. Keep this file safe; it restores the whole house.</p>
+    <button class="btn" onclick="location.href='/api/admin/export'">⬇ Download full backup</button>
+  </div>
+</div>
+
+<script src="admin.js"></script>
+</body>
+</html>

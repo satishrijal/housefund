@@ -1,0 +1,622 @@
+<style>:root{
+  --bg:#faf8f3; --card:#ffffff; --ink:#1a2332; --muted:#6b7280;
+  --emerald:#0e9f6e; --amber:#d97706; --red:#dc2626; --line:#ece7db;
+  --radius:16px; --shadow:0 2px 12px rgba(26,35,50,.07);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+body{margin:0; font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;
+  background:var(--bg); color:var(--ink); padding-bottom:86px;}
+h1,h2,h3{margin:0;}
+button{font:inherit; cursor:pointer;}
+input,select,textarea{font:inherit; width:100%; padding:12px 14px; border:1.5px solid var(--line);
+  border-radius:12px; background:#fff; margin:6px 0;}
+input:focus,select:focus{outline:none; border-color:var(--emerald);}
+.btn{display:block; width:100%; padding:14px; border:none; border-radius:14px;
+  background:var(--ink); color:#fff; font-weight:700; font-size:16px; margin:10px 0;}
+.btn.green{background:var(--emerald);}
+.btn.ghost{background:#efece3; color:var(--ink);}
+.btn.small{padding:9px 14px; font-size:14px; width:auto; display:inline-block; margin:4px 6px 4px 0;}
+.btn.danger{background:var(--red);}
+.card{background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow);
+  padding:16px; margin:12px 14px;}
+.muted{color:var(--muted); font-size:13px;}
+.big{font-size:30px; font-weight:800;}
+.row{display:flex; align-items:center; justify-content:space-between; gap:8px;}
+.pill{display:inline-block; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:700;}
+.pill.ok{background:#d9f5e8; color:#067647;}
+.pill.warn{background:#fef0d7; color:#b54708;}
+.pill.bad{background:#fee4e2; color:#b42318;}
+.progress{height:10px; background:#efece3; border-radius:6px; overflow:hidden; margin:10px 0;}
+.progress>div{height:100%; background:var(--emerald); border-radius:6px; transition:width .4s;}
+/* login */
+.login-wrap{max-width:380px; margin:0 auto; padding:60px 22px 20px;}
+.logo{font-size:34px; font-weight:800; text-align:center; margin-bottom:4px;}
+.logo span{color:var(--emerald);}
+.tagline{text-align:center; color:var(--muted); margin-bottom:26px;}
+/* tabs */
+.tabs{position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--line);
+  display:flex; padding:8px 4px calc(10px + env(safe-area-inset-bottom)); z-index:50;}
+.tab{flex:1; border:none; background:none; font-size:11px; color:var(--muted); padding:6px 0; font-weight:600;}
+.tab.on{color:var(--emerald);}
+.tab .ic{font-size:22px; display:block; margin-bottom:2px;}
+/* activity */
+.txn{border-bottom:1px solid var(--line); padding:12px 0;}
+.txn:last-child{border-bottom:none;}
+.alloc{font-size:13px; color:var(--muted); margin:4px 0 4px 12px; border-left:3px solid var(--line); padding-left:8px;}
+.alloc b{color:var(--ink);}
+/* add sheet */
+.sheet{position:fixed; left:0; right:0; bottom:0; background:#fff; border-radius:20px 20px 0 0;
+  max-height:88vh; overflow-y:auto; padding:18px 18px calc(20px + env(safe-area-inset-bottom)); z-index:60;
+  box-shadow:0 -6px 30px rgba(0,0,0,.15);}
+.scrim{position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:55;}
+.seg{display:flex; gap:8px; margin:8px 0;}
+.seg button{flex:1; padding:10px; border:2px solid var(--line); background:#fff; border-radius:12px; font-weight:600;}
+.seg button.on{border-color:var(--emerald); background:#eefbf4; color:#067647;}
+.alloc-row{background:#f7f5ef; border-radius:12px; padding:10px; margin:8px 0;}
+label{font-size:13px; font-weight:600; color:var(--muted); display:block; margin-top:10px;}
+.hidden{display:none !important;}
+.temp-pass{background:#1a2332; color:#7CFC9A; font-family:monospace; font-size:22px;
+  text-align:center; padding:16px; border-radius:12px; margin:12px 0; letter-spacing:1px;}
+table.admin{width:100%; border-collapse:collapse; font-size:14px;}
+table.admin td, table.admin th{padding:10px 6px; border-bottom:1px solid var(--line); text-align:left;}
+.topbar{position:sticky; top:0; background:var(--bg); padding:14px; z-index:40;
+  display:flex; justify-content:space-between; align-items:center;}
+.topbar h1{font-size:20px;}
+.debt{color:var(--red); font-weight:700;}
+.credit{color:#067647; font-weight:700;}
+
+#hf-demo{background:var(--bg);color:var(--ink);max-width:100%;overflow-x:hidden;min-height:420px;font-size:15px}
+#hf-demo .tab{font-size:13px;padding:10px 0}
+html[data-theme="dark"] #hf-demo{--bg:#151c28;--card:#1f2937;--ink:#eef0f2;--muted:#9aa3b2;--line:#2d3a4f;--shadow:0 2px 12px rgba(0,0,0,.4)}
+html[data-theme="dark"] #hf-demo .btn{background:#e8e4d8;color:#1a2332}
+html[data-theme="dark"] #hf-demo .btn.green{background:var(--emerald);color:#fff}
+html[data-theme="dark"] #hf-demo .btn.ghost{background:#2a3547;color:var(--ink)}
+html[data-theme="dark"] #hf-demo input,html[data-theme="dark"] #hf-demo select,html[data-theme="dark"] #hf-demo textarea{background:#1a2330;color:var(--ink);border-color:var(--line)}
+html[data-theme="dark"] #hf-demo .alloc-row{background:#1a2330}
+html[data-theme="dark"] #hf-demo .tabs{background:#1a2330;border-top-color:var(--line)}
+html[data-theme="dark"] #hf-demo .sheet{background:#1f2937}
+html[data-theme="dark"] #hf-demo .topbar{background:var(--bg)}
+</style>
+<div id="hf-demo">
+  <div class="topbar">
+    <h1>HouseFund <span class="pill warn">DEMO</span></h1>
+    <select id="d-viewas" onchange="D.viewAs=this.value;render()" style="width:auto"></select>
+  </div>
+  <div class="card" style="margin-top:0"><span class="muted">Play money — sample house of 5. Try the Add tab: post an expense, split it, settle up. Resets when you reopen.</span></div>
+  <div id="d-view"></div>
+  <nav class="tabs">
+    <button class="tab on" data-t="home" onclick="dGo('home')">Home</button>
+    <button class="tab" data-t="activity" onclick="dGo('activity')">Activity</button>
+    <button class="tab" data-t="add" onclick="dAdd()">Add</button>
+    <button class="tab" data-t="groceries" onclick="dGo('groceries')">Groceries</button>
+    <button class="tab" data-t="house" onclick="dGo('house')">House</button>
+  </nav>
+</div>
+<div id="d-sheet"></div>
+<script>
+/**
+ * ledger.js — HouseFund pure ledger engine.
+ *
+ * Integer cents everywhere. Immutable transactions: corrections are posted
+ * as reversing entries, never edits. No I/O here — operates on a plain
+ * state object so it is trivially unit-testable.
+ *
+ * Allocation kinds (an expense is split into allocations that MUST sum to
+ * the transaction total — validated):
+ *   cover    — payer covers beneficiary's monthly contribution.
+ *              Creates debt: beneficiary -> payer (unless gift flag).
+ *   house    — the household fund owes the payer (a house advance).
+ *   personal — beneficiary's personal purchase; beneficiary -> payer debt.
+ *   gift     — no debt created.
+ *
+ * Settlements pay down ONE specific liability (an allocation, or a house
+ * debt). Partial settlements allowed; over-settlement rejected.
+ */
+
+function blankLedger() {
+  return {
+    monthlyTarget: 10000, // cents per member per month ($100)
+    contributions: [],    // {id, userId, month:'YYYY-MM', cents, paidBy, by, at}
+    txns: [],             // {id, kind:'expense'|'settlement'|'reversal', cents, payerId,
+                          //  fromId, toId, allocId, house, merchant, note, date, month,
+                          //  receiptId, by, at, reverses, reversedBy}
+    allocs: [],           // {id, txnId, kind:'cover'|'house'|'personal'|'gift',
+                          //  cents, beneficiaryId, note}
+    seq: 1,
+  };
+}
+
+function _id(L) { return 'x' + (L.seq++); }
+function _now() { return new Date().toISOString(); }
+function _monthOf(dateStr) {
+  const d = String(dateStr || '').slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d.slice(0, 7) : new Date().toISOString().slice(0, 7);
+}
+function _assert(cond, msg) { if (!cond) throw new Error(msg); }
+function _cents(n, label) {
+  const c = Math.round(Number(n));
+  _assert(Number.isFinite(c) && c > 0, (label || 'Amount') + ' must be a positive number.');
+  return c;
+}
+
+const ALLOC_KINDS = ['cover', 'house', 'personal', 'gift'];
+
+function addContribution(L, { userId, month, cents, paidBy, by }) {
+  _assert(userId, 'Member is required.');
+  _assert(/^\d{4}-\d{2}$/.test(String(month)), 'Month must look like 2026-10.');
+  const c = _cents(cents, 'Contribution');
+  const row = {
+    id: _id(L), userId: String(userId), month: String(month), cents: c,
+    paidBy: paidBy ? String(paidBy) : String(userId),
+    by: by || null, at: _now(),
+  };
+  L.contributions.push(row);
+  return row;
+}
+
+/**
+ * Post an expense. allocs: [{kind, cents, beneficiaryId?, note?}]
+ * cover/personal REQUIRE beneficiaryId. Sum of allocs must equal cents.
+ */
+function postExpense(L, { payerId, cents, merchant, note, date, allocs, receiptId, by }) {
+  _assert(payerId, 'Payer is required.');
+  const total = _cents(cents, 'Expense total');
+  _assert(Array.isArray(allocs) && allocs.length > 0, 'Split the expense into at least one allocation.');
+  let sum = 0;
+  const rows = allocs.map((a) => {
+    _assert(ALLOC_KINDS.includes(a.kind), 'Bad allocation kind: ' + a.kind);
+    const c = _cents(a.cents, 'Allocation');
+    if (a.kind === 'cover' || a.kind === 'personal') {
+      _assert(a.beneficiaryId, 'Allocation "' + a.kind + '" needs the member it is for.');
+    }
+    sum += c;
+    return {
+      id: _id(L), txnId: null, kind: a.kind, cents: c,
+      beneficiaryId: a.beneficiaryId ? String(a.beneficiaryId) : null,
+      note: a.note || null,
+    };
+  });
+  _assert(sum === total,
+    'Allocations add up to ' + fmt(sum) + ' but the expense is ' + fmt(total) + '. They must match exactly.');
+  const txn = {
+    id: _id(L), kind: 'expense', cents: total, payerId: String(payerId),
+    fromId: null, toId: null, allocId: null, house: false,
+    merchant: merchant || null, note: note || null,
+    date: String(date || '').slice(0, 10) || new Date().toISOString().slice(0, 10),
+    month: _monthOf(date), receiptId: receiptId || null,
+    by: by || null, at: _now(), reverses: null, reversedBy: null,
+  };
+  L.txns.push(txn);
+  for (const r of rows) { r.txnId = txn.id; L.allocs.push(r); }
+  return { txn, allocs: rows };
+}
+
+/** Open (unsettled) amount of one allocation's debt. */
+function allocOpen(L, allocId) {
+  const a = L.allocs.find((x) => x.id === allocId);
+  _assert(a, 'Allocation not found.');
+  if (a.kind === 'gift' || a.kind === 'house') return 0;
+  const paid = L.txns
+    .filter((t) => t.kind === 'settlement' && t.allocId === allocId && !t.reversedBy)
+    .reduce((s, t) => s + t.cents, 0);
+  return a.cents - paid;
+}
+
+/** What the household owes one member (house advances minus house reimbursements). */
+function houseOwesMember(L, userId) {
+  const uid = String(userId);
+  const advanced = L.allocs
+    .filter((a) => a.kind === 'house' && allocLive(L, a))
+    .filter((a) => txnOf(L, a.txnId).payerId === uid)
+    .reduce((s, a) => s + a.cents, 0);
+  const reimbursed = L.txns
+    .filter((t) => t.kind === 'settlement' && t.house && t.toId === uid && !t.reversedBy)
+    .reduce((s, t) => s + t.cents, 0);
+  return advanced - reimbursed;
+}
+
+function txnOf(L, txnId) { return L.txns.find((t) => t.id === txnId); }
+function txnVoided(L, txnId) {
+  const t = txnOf(L, txnId);
+  return !t || !!t.reversedBy;
+}
+/** An allocation counts toward balances only if its txn is live (not voided, not a reversal entry). */
+function allocLive(L, a) {
+  const t = txnOf(L, a.txnId);
+  return !!t && !t.reversedBy && t.kind !== 'reversal';
+}
+
+/**
+ * Settle one liability.
+ *  - personal/cover debt: {fromId, toId, allocId, cents}
+ *  - house reimbursement: {fromId:'house', toId, house:true, cents}
+ */
+function postSettlement(L, { fromId, toId, cents, allocId, house, memo, by }) {
+  const c = _cents(cents, 'Settlement');
+  _assert(toId, 'Recipient is required.');
+  let open, label;
+  if (house) {
+    _assert(fromId === 'house', 'House settlements come from the house fund.');
+    open = houseOwesMember(L, toId);
+    label = 'house debt';
+  } else {
+    _assert(allocId, 'Pick the specific debt this payment settles.');
+    _assert(fromId && toId, 'Both sides of the settlement are required.');
+    open = allocOpen(L, allocId);
+    label = 'debt';
+  }
+  _assert(open > 0, 'That ' + label + ' is already fully settled.');
+  _assert(c <= open, 'That ' + label + ' only has ' + fmt(open) + ' open — ' + fmt(c) + ' is too much.');
+  const txn = {
+    id: _id(L), kind: 'settlement', cents: c, payerId: null,
+    fromId: String(fromId), toId: String(toId),
+    allocId: allocId || null, house: !!house,
+    merchant: null, note: memo || null,
+    date: new Date().toISOString().slice(0, 10),
+    month: new Date().toISOString().slice(0, 7),
+    receiptId: null, by: by || null, at: _now(), reverses: null, reversedBy: null,
+  };
+  L.txns.push(txn);
+  return txn;
+}
+
+/** Reverse a transaction with an offsetting entry. Blocked if settled against. */
+function reverseTxn(L, txnId, by) {
+  const t = txnOf(L, txnId);
+  _assert(t, 'Transaction not found.');
+  _assert(!t.reversedBy, 'That transaction was already reversed.');
+  _assert(t.kind === 'expense', 'Only expenses can be reversed.');
+  const mine = L.allocs.filter((a) => a.txnId === txnId);
+  for (const a of mine) {
+    const settled = L.txns.some((s) => s.kind === 'settlement' && s.allocId === a.id && !s.reversedBy);
+    _assert(!settled, 'Cannot reverse: a settlement was already made against this expense. Reverse the settlement first.');
+  }
+  const rev = {
+    id: _id(L), kind: 'reversal', cents: t.cents, payerId: t.payerId,
+    fromId: null, toId: null, allocId: null, house: false,
+    merchant: t.merchant, note: 'Reversal of ' + (t.merchant || t.id),
+    date: new Date().toISOString().slice(0, 10),
+    month: new Date().toISOString().slice(0, 7),
+    receiptId: null, by: by || null, at: _now(), reverses: txnId, reversedBy: null,
+  };
+  L.txns.push(rev);
+  for (const a of mine) {
+    L.allocs.push({
+      id: _id(L), txnId: rev.id, kind: a.kind, cents: -a.cents,
+      beneficiaryId: a.beneficiaryId, note: 'reversal',
+    });
+  }
+  t.reversedBy = rev.id;
+  return rev;
+}
+
+// ---------------------------------------------------------- summaries ---
+
+function memberName(L, members, id) {
+  const m = (members || []).find((x) => String(x.id) === String(id));
+  return m ? m.name : 'Unknown';
+}
+
+/** Full per-member picture for one month. members: [{id,name}] for labels. */
+function memberSummary(L, members, userId, month) {
+  const uid = String(userId);
+  const target = L.monthlyTarget;
+  const direct = L.contributions
+    .filter((c) => c.userId === uid && c.month === month)
+    .reduce((s, c) => s + c.cents, 0);
+  const covered = L.allocs
+    .filter((a) => a.kind === 'cover' && a.beneficiaryId === uid && allocLive(L, a))
+    .filter((a) => txnOf(L, a.txnId).month === month)
+    .reduce((s, a) => s + a.cents, 0);
+  const paid = direct + covered;
+
+  const iOwe = [];
+  const owedToMe = [];
+  for (const a of L.allocs) {
+    if (!allocLive(L, a)) continue;
+    if (a.kind !== 'cover' && a.kind !== 'personal') continue;
+    const open = allocOpen(L, a.id);
+    if (open <= 0) continue;
+    const t = txnOf(L, a.txnId);
+    const why = (a.kind === 'cover' ? 'contribution covered: ' : 'personal: ') + (t.merchant || t.note || 'expense');
+    if (a.beneficiaryId === uid) {
+      iOwe.push({ toId: t.payerId, to: memberName(L, members, t.payerId), cents: open, why, allocId: a.id });
+    } else if (t.payerId === uid) {
+      owedToMe.push({ fromId: a.beneficiaryId, from: memberName(L, members, a.beneficiaryId), cents: open, why, allocId: a.id });
+    }
+  }
+  const house = houseOwesMember(L, uid);
+  return {
+    userId: uid, month, target, contribPaid: paid, contribDue: target - paid,
+    iOwe, owedToMe, houseOwesMe: house,
+    net: owedToMe.reduce((s, d) => s + d.cents, 0) + house - iOwe.reduce((s, d) => s + d.cents, 0),
+  };
+}
+
+/** Whole-house picture for one month. */
+function houseSummary(L, members, month) {
+  const collected = L.contributions
+    .filter((c) => c.month === month)
+    .reduce((s, c) => s + c.cents, 0);
+  const spent = L.txns
+    .filter((t) => t.kind === 'expense' && t.month === month && !t.reversedBy)
+    .reduce((s, t) => s + t.cents, 0);
+  const memberIds = (members || []).map((m) => String(m.id));
+  const perMember = memberIds.map((id) => memberSummary(L, members, id, month));
+  const target = L.monthlyTarget * memberIds.length;
+  return {
+    month, target, collected,
+    contribOutstanding: target - collected,
+    spent,
+    houseDebt: memberIds.reduce((s, id) => s + Math.max(0, houseOwesMember(L, id)), 0),
+    perMember,
+  };
+}
+
+/** CSV of every transaction, including voided ones and reversals (audit trail). */
+function exportCsv(L, members) {
+  const rows = [['date', 'type', 'status', 'payer/from', 'to', 'amount', 'merchant/note', 'allocations']];
+  for (const t of L.txns) {
+    const status = t.kind === 'reversal' ? 'reversal' : (t.reversedBy ? 'voided' : 'live');
+    const allocStr = L.allocs.filter((a) => a.txnId === t.id)
+      .map((a) => a.kind + ':' + (a.cents / 100) + (a.beneficiaryId ? '>' + memberName(L, members, a.beneficiaryId) : '')).join('|');
+    rows.push([
+      t.date, t.kind, status,
+      t.kind === 'settlement' ? (t.fromId === 'house' ? 'HOUSE' : memberName(L, members, t.fromId)) : memberName(L, members, t.payerId),
+      t.kind === 'settlement' ? memberName(L, members, t.toId) : '',
+      (t.cents / 100).toFixed(2),
+      (t.merchant || '') + (t.note ? ' — ' + t.note : ''),
+      allocStr,
+    ]);
+  }
+  return rows.map((r) => r.map((c) => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
+}
+
+function fmt(cents) {
+  const neg = cents < 0;
+  const v = Math.abs(Math.round(cents)) / 100;
+  return (neg ? '-$' : '$') + v.toFixed(2);
+}
+
+var HF_API={blankLedger:blankLedger,addContribution:addContribution,postExpense:postExpense,postSettlement:postSettlement,reverseTxn:reverseTxn,allocOpen:allocOpen,houseOwesMember:houseOwesMember,memberSummary:memberSummary,houseSummary:houseSummary,exportCsv:exportCsv,fmt:fmt};</script>
+<script>
+'use strict';
+/* Demo: real ledger.js engine, in-memory sample data. */
+const { blankLedger, addContribution, postExpense, postSettlement, reverseTxn, memberSummary, houseSummary } = HF_API;
+const D = {
+  viewAs: 'alex', month: '2026-10',
+  members: [
+    { id: 'alex', name: 'Alex' }, { id: 'ben', name: 'Ben' },
+    { id: 'chris', name: 'Chris' }, { id: 'david', name: 'David' },
+    { id: 'ethan', name: 'Ethan' },
+  ],
+  ledger: blankLedger(),
+  bills: [
+    { id: 'b1', name: 'Internet', cents: 7000, due: '2026-10-28', status: 'unpaid' },
+    { id: 'b2', name: 'Electricity', cents: 12000, due: '2026-11-05', status: 'unpaid' },
+  ],
+  shopping: [
+    { id: 's1', item: 'Milk', qty: '2', done: false },
+    { id: 's2', item: 'Rice 10lb', qty: '1', done: false },
+    { id: 's3', item: 'Eggs', qty: '12', done: true },
+  ],
+};
+const $d = (id) => document.getElementById(id);
+const des = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const dfmt = (c) => '$' + (Math.round(c) / 100).toFixed(2);
+const dname = (id) => (D.members.find((m) => m.id === id) || {}).name || id;
+
+function seed() {
+  const L = D.ledger;
+  for (const id of ['alex', 'ben', 'chris']) addContribution(L, { userId: id, month: '2026-10', cents: 10000, by: 'demo' });
+  postExpense(L, { payerId: 'chris', cents: 22500, merchant: 'Walmart', date: '2026-10-15', by: 'demo',
+    allocs: [
+      { kind: 'cover', cents: 10000, beneficiaryId: 'david', note: "David's contribution" },
+      { kind: 'house', cents: 12500, note: 'house advance' },
+    ]});
+  const davidDebt = L.allocs.find((a) => a.kind === 'cover');
+  postSettlement(L, { fromId: 'david', toId: 'chris', cents: 2500, allocId: davidDebt.id, by: 'demo' });
+  postExpense(L, { payerId: 'ben', cents: 8420, merchant: 'Aldi', date: '2026-10-14', by: 'demo',
+    allocs: [{ kind: 'house', cents: 8420, note: 'groceries' }] });
+}
+
+function dGo(t) {
+  document.querySelectorAll('#hf-demo .tab').forEach((el) => el.classList.toggle('on', el.dataset.t === t));
+  ({ home: dHome, activity: dActivity, groceries: dGroceries, house: dHouse })[t]();
+}
+function render() {
+  $d('d-viewas').innerHTML = D.members.map((m) => `<option value="${m.id}"${m.id === D.viewAs ? ' selected' : ''}>${des(m.name)}</option>`).join('');
+  const on = document.querySelector('#hf-demo .tab.on');
+  dGo(on ? on.dataset.t : 'home');
+}
+
+function dHome() {
+  const h = houseSummary(D.ledger, D.members, D.month);
+  const me = memberSummary(D.ledger, D.members, D.viewAs, D.month);
+  const pct = h.target ? Math.min(100, Math.round(h.collected / h.target * 100)) : 0;
+  let html = `<div class="card">
+    <div class="row"><h3>Monthly fund</h3><span class="muted">${D.month}</span></div>
+    <div class="big">${dfmt(h.collected)} <span class="muted" style="font-size:16px">of ${dfmt(h.target)}</span></div>
+    <div class="progress"><div style="width:${pct}%"></div></div>
+    <div class="row"><span class="muted">Collected</span>
+    <span class="${h.contribOutstanding > 0 ? 'debt' : 'credit'}">${h.contribOutstanding > 0 ? dfmt(h.contribOutstanding) + ' still due' : 'Fully funded ✓'}</span></div></div>`;
+  html += `<div class="card"><h3>${des(dname(D.viewAs))}'s status</h3>
+    <div class="row" style="margin-top:8px"><span>Contribution</span>
+    ${me.contribDue > 0 ? `<span class="pill warn">${dfmt(me.contribDue)} due</span>` : `<span class="pill ok">Paid ✓</span>`}</div>`;
+  for (const x of me.iOwe) html += `<div class="row" style="margin-top:6px"><span class="muted">Owes ${des(x.to)}</span><span class="debt">${dfmt(x.cents)}</span></div>`;
+  for (const x of me.owedToMe) html += `<div class="row" style="margin-top:6px"><span class="muted">${des(x.from)} owes</span><span class="credit">${dfmt(x.cents)}</span></div>`;
+  if (me.houseOwesMe > 0) html += `<div class="row" style="margin-top:6px"><span class="muted">House owes</span><span class="credit">${dfmt(me.houseOwesMe)}</span></div>`;
+  html += `</div>`;
+  $d('d-view').innerHTML = html;
+}
+
+function dActivity() {
+  const txns = [...D.ledger.txns].reverse();
+  let html = `<div class="card"><h3>Ledger</h3>`;
+  for (const t of txns) {
+    const st = t.kind === 'reversal' ? ' <span class="pill warn">reversal</span>' : t.reversedBy ? ' <span class="pill bad">voided</span>' : '';
+    html += `<div class="txn"><div class="row"><b>${des(t.kind === 'expense' ? (t.merchant || 'Expense') : t.kind)}</b>
+      <b class="${t.kind === 'expense' ? 'debt' : 'credit'}">${t.kind === 'expense' ? '−' : '+'}${dfmt(t.cents)}</b></div>
+      <div class="muted">${des(t.date)} · ${des(t.kind === 'settlement' ? (t.fromId === 'house' ? 'House' : dname(t.fromId)) + ' → ' + dname(t.toId) : 'paid by ' + dname(t.payerId))}${st}</div>`;
+    for (const a of D.ledger.allocs.filter((x) => x.txnId === t.id))
+      html += `<div class="alloc"><b>${a.kind}</b> ${dfmt(a.cents)} → ${des(a.kind === 'house' ? 'house fund' : dname(a.beneficiaryId))}${a.note ? ' · ' + des(a.note) : ''}</div>`;
+    if (!t.reversedBy && t.kind === 'expense') html += `<button class="btn ghost small" onclick="dReverse('${t.id}')">Reverse</button>`;
+    html += `</div>`;
+  }
+  $d('d-view').innerHTML = html + `</div>`;
+}
+function dReverse(id) {
+  try { reverseTxn(D.ledger, id, 'demo'); render(); }
+  catch (e) { alert(e.message); }
+}
+
+let dAllocN = 0;
+function dAdd() {
+  document.querySelectorAll('#hf-demo .tab').forEach((el) => el.classList.toggle('on', el.dataset.t === 'add'));
+  dAllocN = 0;
+  $d('d-sheet').innerHTML = `<div class="scrim" onclick="$d('d-sheet').innerHTML='';dGo('home')"></div><div class="sheet">
+    <h2>Add</h2>
+    <div class="seg"><button class="on" id="ds-exp" onclick="dAddTab('exp')">Expense</button>
+    <button id="ds-con" onclick="dAddTab('con')">Contribution</button>
+    <button id="ds-set" onclick="dAddTab('set')">Settle up</button></div>
+    <div id="d-addbody"></div></div>`;
+  dAddTab('exp');
+}
+function dAddTab(t) {
+  for (const x of ['exp', 'con', 'set']) $d('ds-' + x).classList.toggle('on', x === t);
+  ({ exp: dFExp, con: dFCon, set: dFSet })[t]();
+}
+const dOpts = (sel) => D.members.map((m) => `<option value="${m.id}"${m.id === sel ? ' selected' : ''}>${des(m.name)}</option>`).join('');
+function dFExp() {
+  $d('d-addbody').innerHTML = `
+    <label>Who paid?</label><select id="de-payer">${dOpts(D.viewAs)}</select>
+    <label>Total ($)</label><input id="de-amt" type="number" step="0.01" min="0" placeholder="0.00">
+    <label>Where / what</label><input id="de-merch" placeholder="Walmart, rent, …">
+    <label>Split — must add up to the total</label><div id="de-allocs"></div>
+    <button class="btn ghost" onclick="dAllocRow()">+ Add split</button>
+    <div id="de-sum" class="muted"></div>
+    <button class="btn green" onclick="dSaveExp()">Save expense</button>`;
+  dAllocRow();
+}
+function dAllocRow() {
+  const i = dAllocN++;
+  const div = document.createElement('div');
+  div.className = 'alloc-row'; div.id = 'dar' + i;
+  div.innerHTML = `<div class="row"><select id="dak${i}">
+      <option value="house">House fund owes payer</option><option value="cover">Cover someone's contribution</option>
+      <option value="personal">Personal purchase for…</option><option value="gift">Gift (no debt)</option></select>
+    <button class="btn ghost small" onclick="document.getElementById('dar${i}').remove()">✕</button></div>
+    <select id="dab${i}">${dOpts('')}</select>
+    <input id="daa${i}" type="number" step="0.01" min="0" placeholder="Amount $" oninput="dUpdSum()">`;
+  $d('de-allocs').appendChild(div);
+}
+function dUpdSum() {
+  let s = 0;
+  document.querySelectorAll('#de-allocs input[type=number]').forEach((el) => { if (el.value) s += Math.round(parseFloat(el.value) * 100); });
+  $d('de-sum').textContent = 'Splits total: ' + dfmt(s);
+}
+function dSaveExp() {
+  const allocs = [];
+  document.querySelectorAll('#de-allocs .alloc-row').forEach((row) => {
+    const i = row.id.replace('dar', '');
+    allocs.push({ kind: $d('dak' + i).value, cents: Math.round(parseFloat($d('daa' + i).value || 0) * 100), beneficiaryId: $d('dab' + i).value || null });
+  });
+  try {
+    postExpense(D.ledger, { payerId: $d('de-payer').value, cents: Math.round(parseFloat($d('de-amt').value) * 100),
+      merchant: $d('de-merch').value, date: '2026-10-15', allocs, by: 'demo' });
+    $d('d-sheet').innerHTML = ''; render();
+  } catch (e) { alert(e.message); }
+}
+function dFCon() {
+  $d('d-addbody').innerHTML = `<label>For whom?</label><select id="dc-who">${dOpts(D.viewAs)}</select>
+    <label>Amount ($)</label><input id="dc-amt" type="number" step="0.01" placeholder="100.00">
+    <button class="btn green" onclick="dSaveCon()">Record contribution</button>`;
+}
+function dSaveCon() {
+  try {
+    addContribution(D.ledger, { userId: $d('dc-who').value, month: D.month, cents: Math.round(parseFloat($d('dc-amt').value) * 100), by: 'demo' });
+    $d('d-sheet').innerHTML = ''; render();
+  } catch (e) { alert(e.message); }
+}
+function dFSet() {
+  const me = memberSummary(D.ledger, D.members, D.viewAs, D.month);
+  window.D_DEBTS = me.iOwe;
+  $d('d-addbody').innerHTML = `<label>Pay what?</label>
+    <select id="ds-debt">${me.iOwe.map((d, i) => `<option value="${i}">Owe ${des(d.to)} ${dfmt(d.cents)} — ${des(d.why)}</option>`).join('') || '<option value="">No open debts 🎉</option>'}</select>
+    <label>Amount ($)</label><input id="ds-amt" type="number" step="0.01" placeholder="0.00">
+    <button class="btn green" onclick="dSaveSet()">Record payment</button>`;
+}
+function dSaveSet() {
+  const d = (window.D_DEBTS || [])[+$d('ds-debt').value];
+  if (!d) return;
+  try {
+    postSettlement(D.ledger, { fromId: D.viewAs, toId: d.toId, cents: Math.round(parseFloat($d('ds-amt').value) * 100), allocId: d.allocId, by: 'demo' });
+    $d('d-sheet').innerHTML = ''; render();
+  } catch (e) { alert(e.message); }
+}
+
+function dGroceries() {
+  let html = `<div class="card"><div class="row"><h3>Shopping list</h3><button class="btn green small" onclick="dShopAdd()">+ Add</button></div>`;
+  for (const it of D.shopping)
+    html += `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><span><b style="${it.done ? 'text-decoration:line-through' : ''}">${des(it.item)}</b> <span class="muted">${des(it.qty)}</span></span>
+      <button class="btn ghost small" onclick="D.shopping.find(x=>x.id==='${it.id}').done=!D.shopping.find(x=>x.id==='${it.id}').done;render()">${it.done ? 'Undo' : 'Got it'}</button></div>`;
+  $d('d-view').innerHTML = html + `</div>
+    <div class="card"><h3>Receipts</h3><p class="muted">Photo upload + AI scan live in the real app — this demo keeps the money side.</p></div>`;
+}
+function dShopAdd() {
+  const item = prompt('Item:'); if (!item) return;
+  D.shopping.push({ id: 's' + Date.now(), item, qty: '', done: false });
+  render();
+}
+
+function dHouse() {
+  const h = houseSummary(D.ledger, D.members, D.month);
+  let html = `<div class="card"><h3>Roommates</h3>`;
+  for (const m of h.perMember) {
+    const nm = dname(m.userId);
+    html += `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><span><b>${des(nm)}</b><br>
+      <span class="muted">${m.iOwe.length ? 'owes ' + dfmt(m.iOwe.reduce((a, d) => a + d.cents, 0)) : 'settled ✓'}</span></span>
+      ${m.contribDue > 0 ? `<span class="pill warn">${dfmt(m.contribDue)} due</span>` : `<span class="pill ok">paid</span>`}</div>`;
+  }
+  html += `</div><div class="card"><h3>Bills</h3>`;
+  for (const b of D.bills)
+    html += `<div class="row" style="padding:8px 0"><span><b>${des(b.name)}</b><br><span class="muted">due ${des(b.due)} · ${dfmt(b.cents)}</span></span>
+      ${b.status === 'paid' ? '<span class="pill ok">paid</span>' : `<button class="btn green small" onclick="dPayBill('${b.id}')">Mark paid</button>`}</div>`;
+  $d('d-view').innerHTML = html + `</div>`;
+}
+function dPayBill(id) {
+  const b = D.bills.find((x) => x.id === id);
+  const per = Math.floor(b.cents / D.members.length);
+  postExpense(D.ledger, { payerId: D.viewAs, cents: b.cents, merchant: b.name, date: '2026-10-15', by: 'demo',
+    allocs: D.members.map((m, i) => ({ kind: 'personal', cents: i === D.members.length - 1 ? b.cents - per * (D.members.length - 1) : per, beneficiaryId: m.id, note: b.name })) });
+  b.status = 'paid';
+  render();
+}
+
+/* Widget state bridge: persist demo state across replays instead of browser storage. */
+const W = (typeof window !== 'undefined' && window.hatchWidget) ? window.hatchWidget : null;
+function saveDemo() {
+  if (!W) return;
+  try { W.setState({ ledger: D.ledger, bills: D.bills, shopping: D.shopping, viewAs: D.viewAs, month: D.month }); } catch (e) {}
+}
+let restored = false;
+if (W) {
+  try {
+    const s = W.getState(null);
+    if (s && s.ledger && Array.isArray(s.ledger.txns)) {
+      D.ledger = s.ledger; D.bills = s.bills || D.bills; D.shopping = s.shopping || D.shopping;
+      D.viewAs = s.viewAs || D.viewAs; D.month = s.month || D.month; restored = true;
+    }
+  } catch (e) {}
+  window.addEventListener('hatch-widget-state', (ev) => {
+    const s = ev && ev.detail && ev.detail.state;
+    if (s && s.ledger && Array.isArray(s.ledger.txns)) {
+      D.ledger = s.ledger; D.bills = s.bills || []; D.shopping = s.shopping || []; render();
+    }
+  });
+}
+if (!restored) seed();
+const _render = render;
+render = function () { _render(); saveDemo(); };
+render();
+</script>

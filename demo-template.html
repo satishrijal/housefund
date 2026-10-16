@@ -1,0 +1,271 @@
+<style>/*STYLE_CSS*/
+#hf-demo{background:var(--bg);color:var(--ink);max-width:100%;overflow-x:hidden;min-height:420px;font-size:15px}
+#hf-demo .tab{font-size:13px;padding:10px 0}
+html[data-theme="dark"] #hf-demo{--bg:#151c28;--card:#1f2937;--ink:#eef0f2;--muted:#9aa3b2;--line:#2d3a4f;--shadow:0 2px 12px rgba(0,0,0,.4)}
+html[data-theme="dark"] #hf-demo .btn{background:#e8e4d8;color:#1a2332}
+html[data-theme="dark"] #hf-demo .btn.green{background:var(--emerald);color:#fff}
+html[data-theme="dark"] #hf-demo .btn.ghost{background:#2a3547;color:var(--ink)}
+html[data-theme="dark"] #hf-demo input,html[data-theme="dark"] #hf-demo select,html[data-theme="dark"] #hf-demo textarea{background:#1a2330;color:var(--ink);border-color:var(--line)}
+html[data-theme="dark"] #hf-demo .alloc-row{background:#1a2330}
+html[data-theme="dark"] #hf-demo .tabs{background:#1a2330;border-top-color:var(--line)}
+html[data-theme="dark"] #hf-demo .sheet{background:#1f2937}
+html[data-theme="dark"] #hf-demo .topbar{background:var(--bg)}
+</style>
+<div id="hf-demo">
+  <div class="topbar">
+    <h1>HouseFund <span class="pill warn">DEMO</span></h1>
+    <select id="d-viewas" onchange="D.viewAs=this.value;render()" style="width:auto"></select>
+  </div>
+  <div class="card" style="margin-top:0"><span class="muted">Play money — sample house of 5. Try the Add tab: post an expense, split it, settle up. Resets when you reopen.</span></div>
+  <div id="d-view"></div>
+  <nav class="tabs">
+    <button class="tab on" data-t="home" onclick="dGo('home')">Home</button>
+    <button class="tab" data-t="activity" onclick="dGo('activity')">Activity</button>
+    <button class="tab" data-t="add" onclick="dAdd()">Add</button>
+    <button class="tab" data-t="groceries" onclick="dGo('groceries')">Groceries</button>
+    <button class="tab" data-t="house" onclick="dGo('house')">House</button>
+  </nav>
+</div>
+<div id="d-sheet"></div>
+<script>/*LEDGER_JS*/</script>
+<script>
+'use strict';
+/* Demo: real ledger.js engine, in-memory sample data. */
+const { blankLedger, addContribution, postExpense, postSettlement, reverseTxn, memberSummary, houseSummary } = HF_API;
+const D = {
+  viewAs: 'alex', month: '2026-10',
+  members: [
+    { id: 'alex', name: 'Alex' }, { id: 'ben', name: 'Ben' },
+    { id: 'chris', name: 'Chris' }, { id: 'david', name: 'David' },
+    { id: 'ethan', name: 'Ethan' },
+  ],
+  ledger: blankLedger(),
+  bills: [
+    { id: 'b1', name: 'Internet', cents: 7000, due: '2026-10-28', status: 'unpaid' },
+    { id: 'b2', name: 'Electricity', cents: 12000, due: '2026-11-05', status: 'unpaid' },
+  ],
+  shopping: [
+    { id: 's1', item: 'Milk', qty: '2', done: false },
+    { id: 's2', item: 'Rice 10lb', qty: '1', done: false },
+    { id: 's3', item: 'Eggs', qty: '12', done: true },
+  ],
+};
+const $d = (id) => document.getElementById(id);
+const des = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const dfmt = (c) => '$' + (Math.round(c) / 100).toFixed(2);
+const dname = (id) => (D.members.find((m) => m.id === id) || {}).name || id;
+
+function seed() {
+  const L = D.ledger;
+  for (const id of ['alex', 'ben', 'chris']) addContribution(L, { userId: id, month: '2026-10', cents: 10000, by: 'demo' });
+  postExpense(L, { payerId: 'chris', cents: 22500, merchant: 'Walmart', date: '2026-10-15', by: 'demo',
+    allocs: [
+      { kind: 'cover', cents: 10000, beneficiaryId: 'david', note: "David's contribution" },
+      { kind: 'house', cents: 12500, note: 'house advance' },
+    ]});
+  const davidDebt = L.allocs.find((a) => a.kind === 'cover');
+  postSettlement(L, { fromId: 'david', toId: 'chris', cents: 2500, allocId: davidDebt.id, by: 'demo' });
+  postExpense(L, { payerId: 'ben', cents: 8420, merchant: 'Aldi', date: '2026-10-14', by: 'demo',
+    allocs: [{ kind: 'house', cents: 8420, note: 'groceries' }] });
+}
+
+function dGo(t) {
+  document.querySelectorAll('#hf-demo .tab').forEach((el) => el.classList.toggle('on', el.dataset.t === t));
+  ({ home: dHome, activity: dActivity, groceries: dGroceries, house: dHouse })[t]();
+}
+function render() {
+  $d('d-viewas').innerHTML = D.members.map((m) => `<option value="${m.id}"${m.id === D.viewAs ? ' selected' : ''}>${des(m.name)}</option>`).join('');
+  const on = document.querySelector('#hf-demo .tab.on');
+  dGo(on ? on.dataset.t : 'home');
+}
+
+function dHome() {
+  const h = houseSummary(D.ledger, D.members, D.month);
+  const me = memberSummary(D.ledger, D.members, D.viewAs, D.month);
+  const pct = h.target ? Math.min(100, Math.round(h.collected / h.target * 100)) : 0;
+  let html = `<div class="card">
+    <div class="row"><h3>Monthly fund</h3><span class="muted">${D.month}</span></div>
+    <div class="big">${dfmt(h.collected)} <span class="muted" style="font-size:16px">of ${dfmt(h.target)}</span></div>
+    <div class="progress"><div style="width:${pct}%"></div></div>
+    <div class="row"><span class="muted">Collected</span>
+    <span class="${h.contribOutstanding > 0 ? 'debt' : 'credit'}">${h.contribOutstanding > 0 ? dfmt(h.contribOutstanding) + ' still due' : 'Fully funded ✓'}</span></div></div>`;
+  html += `<div class="card"><h3>${des(dname(D.viewAs))}'s status</h3>
+    <div class="row" style="margin-top:8px"><span>Contribution</span>
+    ${me.contribDue > 0 ? `<span class="pill warn">${dfmt(me.contribDue)} due</span>` : `<span class="pill ok">Paid ✓</span>`}</div>`;
+  for (const x of me.iOwe) html += `<div class="row" style="margin-top:6px"><span class="muted">Owes ${des(x.to)}</span><span class="debt">${dfmt(x.cents)}</span></div>`;
+  for (const x of me.owedToMe) html += `<div class="row" style="margin-top:6px"><span class="muted">${des(x.from)} owes</span><span class="credit">${dfmt(x.cents)}</span></div>`;
+  if (me.houseOwesMe > 0) html += `<div class="row" style="margin-top:6px"><span class="muted">House owes</span><span class="credit">${dfmt(me.houseOwesMe)}</span></div>`;
+  html += `</div>`;
+  $d('d-view').innerHTML = html;
+}
+
+function dActivity() {
+  const txns = [...D.ledger.txns].reverse();
+  let html = `<div class="card"><h3>Ledger</h3>`;
+  for (const t of txns) {
+    const st = t.kind === 'reversal' ? ' <span class="pill warn">reversal</span>' : t.reversedBy ? ' <span class="pill bad">voided</span>' : '';
+    html += `<div class="txn"><div class="row"><b>${des(t.kind === 'expense' ? (t.merchant || 'Expense') : t.kind)}</b>
+      <b class="${t.kind === 'expense' ? 'debt' : 'credit'}">${t.kind === 'expense' ? '−' : '+'}${dfmt(t.cents)}</b></div>
+      <div class="muted">${des(t.date)} · ${des(t.kind === 'settlement' ? (t.fromId === 'house' ? 'House' : dname(t.fromId)) + ' → ' + dname(t.toId) : 'paid by ' + dname(t.payerId))}${st}</div>`;
+    for (const a of D.ledger.allocs.filter((x) => x.txnId === t.id))
+      html += `<div class="alloc"><b>${a.kind}</b> ${dfmt(a.cents)} → ${des(a.kind === 'house' ? 'house fund' : dname(a.beneficiaryId))}${a.note ? ' · ' + des(a.note) : ''}</div>`;
+    if (!t.reversedBy && t.kind === 'expense') html += `<button class="btn ghost small" onclick="dReverse('${t.id}')">Reverse</button>`;
+    html += `</div>`;
+  }
+  $d('d-view').innerHTML = html + `</div>`;
+}
+function dReverse(id) {
+  try { reverseTxn(D.ledger, id, 'demo'); render(); }
+  catch (e) { alert(e.message); }
+}
+
+let dAllocN = 0;
+function dAdd() {
+  document.querySelectorAll('#hf-demo .tab').forEach((el) => el.classList.toggle('on', el.dataset.t === 'add'));
+  dAllocN = 0;
+  $d('d-sheet').innerHTML = `<div class="scrim" onclick="$d('d-sheet').innerHTML='';dGo('home')"></div><div class="sheet">
+    <h2>Add</h2>
+    <div class="seg"><button class="on" id="ds-exp" onclick="dAddTab('exp')">Expense</button>
+    <button id="ds-con" onclick="dAddTab('con')">Contribution</button>
+    <button id="ds-set" onclick="dAddTab('set')">Settle up</button></div>
+    <div id="d-addbody"></div></div>`;
+  dAddTab('exp');
+}
+function dAddTab(t) {
+  for (const x of ['exp', 'con', 'set']) $d('ds-' + x).classList.toggle('on', x === t);
+  ({ exp: dFExp, con: dFCon, set: dFSet })[t]();
+}
+const dOpts = (sel) => D.members.map((m) => `<option value="${m.id}"${m.id === sel ? ' selected' : ''}>${des(m.name)}</option>`).join('');
+function dFExp() {
+  $d('d-addbody').innerHTML = `
+    <label>Who paid?</label><select id="de-payer">${dOpts(D.viewAs)}</select>
+    <label>Total ($)</label><input id="de-amt" type="number" step="0.01" min="0" placeholder="0.00">
+    <label>Where / what</label><input id="de-merch" placeholder="Walmart, rent, …">
+    <label>Split — must add up to the total</label><div id="de-allocs"></div>
+    <button class="btn ghost" onclick="dAllocRow()">+ Add split</button>
+    <div id="de-sum" class="muted"></div>
+    <button class="btn green" onclick="dSaveExp()">Save expense</button>`;
+  dAllocRow();
+}
+function dAllocRow() {
+  const i = dAllocN++;
+  const div = document.createElement('div');
+  div.className = 'alloc-row'; div.id = 'dar' + i;
+  div.innerHTML = `<div class="row"><select id="dak${i}">
+      <option value="house">House fund owes payer</option><option value="cover">Cover someone's contribution</option>
+      <option value="personal">Personal purchase for…</option><option value="gift">Gift (no debt)</option></select>
+    <button class="btn ghost small" onclick="document.getElementById('dar${i}').remove()">✕</button></div>
+    <select id="dab${i}">${dOpts('')}</select>
+    <input id="daa${i}" type="number" step="0.01" min="0" placeholder="Amount $" oninput="dUpdSum()">`;
+  $d('de-allocs').appendChild(div);
+}
+function dUpdSum() {
+  let s = 0;
+  document.querySelectorAll('#de-allocs input[type=number]').forEach((el) => { if (el.value) s += Math.round(parseFloat(el.value) * 100); });
+  $d('de-sum').textContent = 'Splits total: ' + dfmt(s);
+}
+function dSaveExp() {
+  const allocs = [];
+  document.querySelectorAll('#de-allocs .alloc-row').forEach((row) => {
+    const i = row.id.replace('dar', '');
+    allocs.push({ kind: $d('dak' + i).value, cents: Math.round(parseFloat($d('daa' + i).value || 0) * 100), beneficiaryId: $d('dab' + i).value || null });
+  });
+  try {
+    postExpense(D.ledger, { payerId: $d('de-payer').value, cents: Math.round(parseFloat($d('de-amt').value) * 100),
+      merchant: $d('de-merch').value, date: '2026-10-15', allocs, by: 'demo' });
+    $d('d-sheet').innerHTML = ''; render();
+  } catch (e) { alert(e.message); }
+}
+function dFCon() {
+  $d('d-addbody').innerHTML = `<label>For whom?</label><select id="dc-who">${dOpts(D.viewAs)}</select>
+    <label>Amount ($)</label><input id="dc-amt" type="number" step="0.01" placeholder="100.00">
+    <button class="btn green" onclick="dSaveCon()">Record contribution</button>`;
+}
+function dSaveCon() {
+  try {
+    addContribution(D.ledger, { userId: $d('dc-who').value, month: D.month, cents: Math.round(parseFloat($d('dc-amt').value) * 100), by: 'demo' });
+    $d('d-sheet').innerHTML = ''; render();
+  } catch (e) { alert(e.message); }
+}
+function dFSet() {
+  const me = memberSummary(D.ledger, D.members, D.viewAs, D.month);
+  window.D_DEBTS = me.iOwe;
+  $d('d-addbody').innerHTML = `<label>Pay what?</label>
+    <select id="ds-debt">${me.iOwe.map((d, i) => `<option value="${i}">Owe ${des(d.to)} ${dfmt(d.cents)} — ${des(d.why)}</option>`).join('') || '<option value="">No open debts 🎉</option>'}</select>
+    <label>Amount ($)</label><input id="ds-amt" type="number" step="0.01" placeholder="0.00">
+    <button class="btn green" onclick="dSaveSet()">Record payment</button>`;
+}
+function dSaveSet() {
+  const d = (window.D_DEBTS || [])[+$d('ds-debt').value];
+  if (!d) return;
+  try {
+    postSettlement(D.ledger, { fromId: D.viewAs, toId: d.toId, cents: Math.round(parseFloat($d('ds-amt').value) * 100), allocId: d.allocId, by: 'demo' });
+    $d('d-sheet').innerHTML = ''; render();
+  } catch (e) { alert(e.message); }
+}
+
+function dGroceries() {
+  let html = `<div class="card"><div class="row"><h3>Shopping list</h3><button class="btn green small" onclick="dShopAdd()">+ Add</button></div>`;
+  for (const it of D.shopping)
+    html += `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><span><b style="${it.done ? 'text-decoration:line-through' : ''}">${des(it.item)}</b> <span class="muted">${des(it.qty)}</span></span>
+      <button class="btn ghost small" onclick="D.shopping.find(x=>x.id==='${it.id}').done=!D.shopping.find(x=>x.id==='${it.id}').done;render()">${it.done ? 'Undo' : 'Got it'}</button></div>`;
+  $d('d-view').innerHTML = html + `</div>
+    <div class="card"><h3>Receipts</h3><p class="muted">Photo upload + AI scan live in the real app — this demo keeps the money side.</p></div>`;
+}
+function dShopAdd() {
+  const item = prompt('Item:'); if (!item) return;
+  D.shopping.push({ id: 's' + Date.now(), item, qty: '', done: false });
+  render();
+}
+
+function dHouse() {
+  const h = houseSummary(D.ledger, D.members, D.month);
+  let html = `<div class="card"><h3>Roommates</h3>`;
+  for (const m of h.perMember) {
+    const nm = dname(m.userId);
+    html += `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><span><b>${des(nm)}</b><br>
+      <span class="muted">${m.iOwe.length ? 'owes ' + dfmt(m.iOwe.reduce((a, d) => a + d.cents, 0)) : 'settled ✓'}</span></span>
+      ${m.contribDue > 0 ? `<span class="pill warn">${dfmt(m.contribDue)} due</span>` : `<span class="pill ok">paid</span>`}</div>`;
+  }
+  html += `</div><div class="card"><h3>Bills</h3>`;
+  for (const b of D.bills)
+    html += `<div class="row" style="padding:8px 0"><span><b>${des(b.name)}</b><br><span class="muted">due ${des(b.due)} · ${dfmt(b.cents)}</span></span>
+      ${b.status === 'paid' ? '<span class="pill ok">paid</span>' : `<button class="btn green small" onclick="dPayBill('${b.id}')">Mark paid</button>`}</div>`;
+  $d('d-view').innerHTML = html + `</div>`;
+}
+function dPayBill(id) {
+  const b = D.bills.find((x) => x.id === id);
+  const per = Math.floor(b.cents / D.members.length);
+  postExpense(D.ledger, { payerId: D.viewAs, cents: b.cents, merchant: b.name, date: '2026-10-15', by: 'demo',
+    allocs: D.members.map((m, i) => ({ kind: 'personal', cents: i === D.members.length - 1 ? b.cents - per * (D.members.length - 1) : per, beneficiaryId: m.id, note: b.name })) });
+  b.status = 'paid';
+  render();
+}
+
+/* Widget state bridge: persist demo state across replays instead of browser storage. */
+const W = (typeof window !== 'undefined' && window.hatchWidget) ? window.hatchWidget : null;
+function saveDemo() {
+  if (!W) return;
+  try { W.setState({ ledger: D.ledger, bills: D.bills, shopping: D.shopping, viewAs: D.viewAs, month: D.month }); } catch (e) {}
+}
+let restored = false;
+if (W) {
+  try {
+    const s = W.getState(null);
+    if (s && s.ledger && Array.isArray(s.ledger.txns)) {
+      D.ledger = s.ledger; D.bills = s.bills || D.bills; D.shopping = s.shopping || D.shopping;
+      D.viewAs = s.viewAs || D.viewAs; D.month = s.month || D.month; restored = true;
+    }
+  } catch (e) {}
+  window.addEventListener('hatch-widget-state', (ev) => {
+    const s = ev && ev.detail && ev.detail.state;
+    if (s && s.ledger && Array.isArray(s.ledger.txns)) {
+      D.ledger = s.ledger; D.bills = s.bills || []; D.shopping = s.shopping || []; render();
+    }
+  });
+}
+if (!restored) seed();
+const _render = render;
+render = function () { _render(); saveDemo(); };
+render();
+</script>
