@@ -89,6 +89,7 @@ const dollarsToCents = (v, label) => {
   return c;
 };
 const thisMonth = () => new Date().toISOString().slice(0, 7);
+const userName = (d, id) => { const u = (d.users || []).find((x) => String(x.id) === String(id)); return u ? u.name : 'Unknown'; };
 
 // -------------------------------------------------------------- API ---
 
@@ -223,18 +224,37 @@ async function api(req, res) {
     if (p === '/api/admin/target' && method === 'POST') {
       const b = await readBody(req);
       const cents = dollarsToCents(b.target, 'Monthly target');
-      await db.mutate((d) => { d.ledger.monthlyTarget = cents; });
-      return ok(res, { ok: true });
+      const month = /^\d{4}-\d{2}$/.test(String(b.month || '')) ? String(b.month) : thisMonth();
+      try {
+        const out = await db.mutate((d) => ledger.setMonthlyTarget(d.ledger, month, cents, 'admin'));
+        return ok(res, out);
+      } catch (e) { return bad(res, e.message); }
     }
     if (p === '/api/admin/status' && method === 'GET') {
       return ok(res, await db.read((d) => ({
         backend: db.isPg() ? 'postgres' : 'json',
         members: d.users.length,
         txns: d.ledger.txns.length,
-        monthlyTarget: d.ledger.monthlyTarget,
+        monthlyTarget: ledger.targetFor(d.ledger, thisMonth()),
+        month: thisMonth(),
       })));
     }
     return bad(res, 'Not found.', 404);
+  }
+
+  // ---- backup pull (for the weekly Drive-backup cron; token-gated, 404 if unset) ----
+  // NOTE: must live BEFORE the member-session gate below.
+  if (p === '/api/backup' && method === 'GET') {
+    const token = url.searchParams.get('token');
+    if (!process.env.BACKUP_TOKEN || token !== process.env.BACKUP_TOKEN) {
+      return bad(res, 'Not found.', 404);
+    }
+    const dump = await db.read((d) => d);
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Content-Disposition': 'attachment; filename="housefund-backup-' + new Date().toISOString().slice(0, 10) + '.json"',
+    });
+    return res.end(JSON.stringify(dump));
   }
 
   // ---- member APIs ----
@@ -334,6 +354,52 @@ async function api(req, res) {
     try {
       const rev = await db.mutate((d) => ledger.reverseTxn(d.ledger, String(b.txnId), sess.user.name));
       return ok(res, { id: rev.id });
+    } catch (e) { return bad(res, e.message); }
+  }
+
+  // ---- personal IOUs ("X owes me $Y") — outside the house fund ----
+  const iouParty = (iou) => sess.user && (iou.fromId === sess.user.id || iou.toId === sess.user.id);
+  if (p === '/api/ious' && method === 'GET') {
+    return ok(res, await db.read((d) => (d.ledger.ious || []).map((i) => ({
+      id: i.id, fromId: i.fromId, toId: i.toId,
+      from: userName(d, i.fromId), to: userName(d, i.toId),
+      cents: i.cents, openCents: i.openCents, note: i.note,
+      date: i.date, settled: !!i.settled, settledAt: i.settledAt,
+    }))));
+  }
+  if (p === '/api/ious' && method === 'POST') {
+    const b = await readBody(req);
+    try {
+      const iou = await db.mutate((d) => {
+        if (!d.users.some((u) => u.id === String(b.fromId))) throw new Error('Member not found.');
+        if (!d.users.some((u) => u.id === String(b.toId))) throw new Error('Member not found.');
+        if (String(b.fromId) !== sess.user.id && String(b.toId) !== sess.user.id) {
+          throw new Error('You can only record IOUs you are part of.');
+        }
+        return ledger.addIou(d.ledger, {
+          fromId: String(b.fromId), toId: String(b.toId),
+          cents: dollarsToCents(b.amount, 'IOU amount'),
+          note: String(b.note || '').slice(0, 140),
+          date: String(b.date || '').slice(0, 10) || undefined,
+          by: sess.user.name,
+        });
+      });
+      return ok(res, { id: iou.id });
+    } catch (e) { return bad(res, e.message); }
+  }
+  if (p.startsWith('/api/ious/') && p.endsWith('/settle') && method === 'POST') {
+    const b = await readBody(req);
+    const iouId = p.split('/')[3];
+    try {
+      const out = await db.mutate((d) => {
+        const iou = (d.ledger.ious || []).find((x) => x.id === iouId);
+        if (!iou) throw new Error('IOU not found.');
+        if (!iouParty(iou)) throw new Error('You can only settle IOUs you are part of.');
+        return ledger.settleIou(d.ledger, {
+          iouId, cents: dollarsToCents(b.amount, 'Payment'), by: sess.user.name,
+        });
+      });
+      return ok(res, { id: out.txn.id, settled: out.iou.settled });
     } catch (e) { return bad(res, e.message); }
   }
 
@@ -509,20 +575,6 @@ async function api(req, res) {
       'Content-Disposition': 'attachment; filename="housefund-ledger.csv"',
     });
     return res.end(csv);
-  }
-
-  // ---- backup pull (for the weekly Drive-backup cron; token-gated, 404 if unset) ----
-  if (p === '/api/backup' && method === 'GET') {
-    const token = url.searchParams.get('token');
-    if (!process.env.BACKUP_TOKEN || token !== process.env.BACKUP_TOKEN) {
-      return bad(res, 'Not found.', 404);
-    }
-    const dump = await db.read((d) => d);
-    res.writeHead(200, {
-      'Content-Type': 'application/json',
-      'Content-Disposition': 'attachment; filename="housefund-backup-' + new Date().toISOString().slice(0, 10) + '.json"',
-    });
-    return res.end(JSON.stringify(dump));
   }
 
   return bad(res, 'Not found.', 404);

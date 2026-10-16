@@ -27,10 +27,11 @@ a GitHub account, a Neon account (free Postgres), a Render account (free).
    - **Build Command:** `npm install`
    - **Start Command:** `node server.js`
    - Plan: **Free**
-4. Tap **Environment** and add three variables:
+4. Tap **Environment** and add four variables:
    - `DATABASE_URL` = the Neon connection string from Step 2
    - `ADMIN_USER` = pick something (e.g. `satish`)
    - `ADMIN_PASS` = pick a strong password (this is YOUR admin login)
+   - `BACKUP_TOKEN` = a long random string (lets your Drive backup pull the database)
 5. Tap **Create Web Service**. Wait ~3 minutes for the first deploy.
    - Free plan sleeps when idle: the first visit after a while takes ~30–60 seconds. Normal.
 

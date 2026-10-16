@@ -20,15 +20,49 @@
 
 function blankLedger() {
   return {
-    monthlyTarget: 10000, // cents per member per month ($100)
+    monthlyTarget: 10000, // legacy global per-member target (cents); per-month targets below win
+    targets: {},          // {'YYYY-MM': centsPerMember} — admin can raise/lower per month
     contributions: [],    // {id, userId, month:'YYYY-MM', cents, paidBy, by, at}
-    txns: [],             // {id, kind:'expense'|'settlement'|'reversal', cents, payerId,
-                          //  fromId, toId, allocId, house, merchant, note, date, month,
+    txns: [],             // {id, kind:'expense'|'settlement'|'reversal'|'iou'|'iou_settlement', cents, payerId,
+                          //  fromId, toId, allocId, iouId, house, merchant, note, date, month,
                           //  receiptId, by, at, reverses, reversedBy}
     allocs: [],           // {id, txnId, kind:'cover'|'house'|'personal'|'gift',
                           //  cents, beneficiaryId, note}
+    ious: [],             // personal IOUs: {id, fromId, toId, cents, openCents, note,
+                          //  date, settled, settledAt, by, at}
     seq: 1,
   };
+}
+
+/** Backfill newer fields for ledgers created before they existed. */
+function shape(L) {
+  if (!L.targets || typeof L.targets !== 'object') L.targets = {};
+  if (!Array.isArray(L.ious)) L.ious = [];
+  if (!Array.isArray(L.contributions)) L.contributions = [];
+  if (!Array.isArray(L.txns)) L.txns = [];
+  if (!Array.isArray(L.allocs)) L.allocs = [];
+  if (!Number.isFinite(L.seq)) L.seq = 1;
+  return L;
+}
+
+/** Per-member monthly target for a month (cents). Falls back to legacy global, then $100. */
+function targetFor(L, month) {
+  shape(L);
+  const t = L.targets[String(month)];
+  if (Number.isFinite(t) && t > 0) return Math.round(t);
+  if (Number.isFinite(L.monthlyTarget) && L.monthlyTarget > 0) return Math.round(L.monthlyTarget);
+  return 10000;
+}
+
+/** Admin sets the per-member collection target for a month (e.g. raise it when big spending is coming). */
+function setMonthlyTarget(L, month, cents, by) {
+  shape(L);
+  _assert(/^\d{4}-\d{2}$/.test(String(month)), 'Month must look like 2026-10.');
+  const c = _cents(cents, 'Monthly target');
+  L.targets[String(month)] = c;
+  // NOTE: deliberately NOT syncing L.monthlyTarget — that field is only a
+  // fallback for ledgers from before per-month targets existed.
+  return { month: String(month), cents: c, by: by || null, at: _now() };
 }
 
 function _id(L) { return 'x' + (L.seq++); }
@@ -47,6 +81,7 @@ function _cents(n, label) {
 const ALLOC_KINDS = ['cover', 'house', 'personal', 'gift'];
 
 function addContribution(L, { userId, month, cents, paidBy, by }) {
+  shape(L);
   _assert(userId, 'Member is required.');
   _assert(/^\d{4}-\d{2}$/.test(String(month)), 'Month must look like 2026-10.');
   const c = _cents(cents, 'Contribution');
@@ -64,6 +99,7 @@ function addContribution(L, { userId, month, cents, paidBy, by }) {
  * cover/personal REQUIRE beneficiaryId. Sum of allocs must equal cents.
  */
 function postExpense(L, { payerId, cents, merchant, note, date, allocs, receiptId, by }) {
+  shape(L);
   _assert(payerId, 'Payer is required.');
   const total = _cents(cents, 'Expense total');
   _assert(Array.isArray(allocs) && allocs.length > 0, 'Split the expense into at least one allocation.');
@@ -98,6 +134,7 @@ function postExpense(L, { payerId, cents, merchant, note, date, allocs, receiptI
 
 /** Open (unsettled) amount of one allocation's debt. */
 function allocOpen(L, allocId) {
+  shape(L);
   const a = L.allocs.find((x) => x.id === allocId);
   _assert(a, 'Allocation not found.');
   if (a.kind === 'gift' || a.kind === 'house') return 0;
@@ -109,6 +146,7 @@ function allocOpen(L, allocId) {
 
 /** What the household owes one member (house advances minus house reimbursements). */
 function houseOwesMember(L, userId) {
+  shape(L);
   const uid = String(userId);
   const advanced = L.allocs
     .filter((a) => a.kind === 'house' && allocLive(L, a))
@@ -137,6 +175,7 @@ function allocLive(L, a) {
  *  - house reimbursement: {fromId:'house', toId, house:true, cents}
  */
 function postSettlement(L, { fromId, toId, cents, allocId, house, memo, by }) {
+  shape(L);
   const c = _cents(cents, 'Settlement');
   _assert(toId, 'Recipient is required.');
   let open, label;
@@ -167,6 +206,7 @@ function postSettlement(L, { fromId, toId, cents, allocId, house, memo, by }) {
 
 /** Reverse a transaction with an offsetting entry. Blocked if settled against. */
 function reverseTxn(L, txnId, by) {
+  shape(L);
   const t = txnOf(L, txnId);
   _assert(t, 'Transaction not found.');
   _assert(!t.reversedBy, 'That transaction was already reversed.');
@@ -195,6 +235,55 @@ function reverseTxn(L, txnId, by) {
   return rev;
 }
 
+/**
+ * Record a personal IOU: fromId owes toId. Separate from the house fund —
+ * e.g. "David owes me $30 for the pizza". Either party can record it;
+ * settling it is tracked below. Never fabricates: amounts are explicit.
+ */
+function addIou(L, { fromId, toId, cents, note, date, by }) {
+  shape(L);
+  _assert(fromId && toId, 'Both people are required.');
+  _assert(String(fromId) !== String(toId), 'Someone cannot owe themself.');
+  const c = _cents(cents, 'IOU amount');
+  const iou = {
+    id: _id(L), fromId: String(fromId), toId: String(toId),
+    cents: c, openCents: c, note: String(note || '').slice(0, 140) || null,
+    date: String(date || '').slice(0, 10) || new Date().toISOString().slice(0, 10),
+    settled: false, settledAt: null, by: by || null, at: _now(),
+  };
+  L.ious.push(iou);
+  L.txns.push({
+    id: _id(L), kind: 'iou', cents: c, payerId: null,
+    fromId: iou.fromId, toId: iou.toId, allocId: null, iouId: iou.id, house: false,
+    merchant: null, note: iou.note,
+    date: iou.date, month: iou.date.slice(0, 7),
+    receiptId: null, by: by || null, at: _now(), reverses: null, reversedBy: null,
+  });
+  return iou;
+}
+
+/** Pay down an IOU. Partial payments allowed; overpaying rejected. */
+function settleIou(L, { iouId, cents, by }) {
+  shape(L);
+  const iou = L.ious.find((x) => x.id === String(iouId));
+  _assert(iou, 'IOU not found.');
+  _assert(!iou.settled, 'That IOU is already fully settled.');
+  const c = _cents(cents, 'Payment');
+  _assert(c <= iou.openCents, 'Only ' + fmt(iou.openCents) + ' is still owed — ' + fmt(c) + ' is too much.');
+  iou.openCents -= c;
+  if (iou.openCents === 0) { iou.settled = true; iou.settledAt = _now(); }
+  const txn = {
+    id: _id(L), kind: 'iou_settlement', cents: c, payerId: null,
+    fromId: iou.fromId, toId: iou.toId, allocId: null, iouId: iou.id, house: false,
+    merchant: null, note: iou.note ? 'IOU payment — ' + iou.note : 'IOU payment',
+    date: new Date().toISOString().slice(0, 10),
+    month: new Date().toISOString().slice(0, 7),
+    receiptId: null, by: by || null, at: _now(), reverses: null, reversedBy: null,
+  };
+  L.txns.push(txn);
+  return { iou, txn };
+}
+
 // ---------------------------------------------------------- summaries ---
 
 function memberName(L, members, id) {
@@ -204,8 +293,9 @@ function memberName(L, members, id) {
 
 /** Full per-member picture for one month. members: [{id,name}] for labels. */
 function memberSummary(L, members, userId, month) {
+  shape(L);
   const uid = String(userId);
-  const target = L.monthlyTarget;
+  const target = targetFor(L, month);
   const direct = L.contributions
     .filter((c) => c.userId === uid && c.month === month)
     .reduce((s, c) => s + c.cents, 0);
@@ -230,6 +320,16 @@ function memberSummary(L, members, userId, month) {
       owedToMe.push({ fromId: a.beneficiaryId, from: memberName(L, members, a.beneficiaryId), cents: open, why, allocId: a.id });
     }
   }
+  // Personal IOUs (outside the house fund).
+  for (const iou of L.ious) {
+    if (iou.settled || iou.openCents <= 0) continue;
+    const why = 'IOU' + (iou.note ? ': ' + iou.note : '');
+    if (iou.fromId === uid) {
+      iOwe.push({ toId: iou.toId, to: memberName(L, members, iou.toId), cents: iou.openCents, why, iouId: iou.id });
+    } else if (iou.toId === uid) {
+      owedToMe.push({ fromId: iou.fromId, from: memberName(L, members, iou.fromId), cents: iou.openCents, why, iouId: iou.id });
+    }
+  }
   const house = houseOwesMember(L, uid);
   return {
     userId: uid, month, target, contribPaid: paid, contribDue: target - paid,
@@ -240,6 +340,7 @@ function memberSummary(L, members, userId, month) {
 
 /** Whole-house picture for one month. */
 function houseSummary(L, members, month) {
+  shape(L);
   const collected = L.contributions
     .filter((c) => c.month === month)
     .reduce((s, c) => s + c.cents, 0);
@@ -248,7 +349,7 @@ function houseSummary(L, members, month) {
     .reduce((s, t) => s + t.cents, 0);
   const memberIds = (members || []).map((m) => String(m.id));
   const perMember = memberIds.map((id) => memberSummary(L, members, id, month));
-  const target = L.monthlyTarget * memberIds.length;
+  const target = targetFor(L, month) * memberIds.length;
   return {
     month, target, collected,
     contribOutstanding: target - collected,
@@ -260,6 +361,7 @@ function houseSummary(L, members, month) {
 
 /** CSV of every transaction, including voided ones and reversals (audit trail). */
 function exportCsv(L, members) {
+  shape(L);
   const rows = [['date', 'type', 'status', 'payer/from', 'to', 'amount', 'merchant/note', 'allocations']];
   for (const t of L.txns) {
     const status = t.kind === 'reversal' ? 'reversal' : (t.reversedBy ? 'voided' : 'live');
@@ -286,4 +388,5 @@ function fmt(cents) {
 module.exports = {
   blankLedger, addContribution, postExpense, postSettlement, reverseTxn,
   allocOpen, houseOwesMember, memberSummary, houseSummary, exportCsv, fmt,
+  targetFor, setMonthlyTarget, addIou, settleIou,
 };

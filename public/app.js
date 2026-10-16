@@ -51,8 +51,8 @@ async function doLogout() { await api('POST', '/api/logout'); location.reload();
 
 function go(t) {
   document.querySelectorAll('.tab').forEach((el) => el.classList.toggle('on', el.dataset.t === t));
-  $('tab-title').textContent = { home: 'Home', activity: 'Activity', groceries: 'Groceries', house: 'House' }[t] || 'Home';
-  ({ home: vHome, activity: vActivity, groceries: vGroceries, house: vHouse })[t]();
+  $('tab-title').textContent = { home: 'Home', activity: 'Activity', groceries: 'Groceries', house: 'House', ious: 'IOUs' }[t] || 'Home';
+  ({ home: vHome, activity: vActivity, groceries: vGroceries, house: vHouse, ious: vIous })[t]();
 }
 
 async function vHome() {
@@ -126,6 +126,7 @@ function openAdd() {
       <button class="on" id="seg-exp" onclick="addTab('exp')">Expense</button>
       <button id="seg-con" onclick="addTab('con')">Contribution</button>
       <button id="seg-set" onclick="addTab('set')">Settle up</button>
+      <button id="seg-iou" onclick="addTab('iou')">IOU</button>
     </div>
     <div id="add-body"></div>
   </div>`;
@@ -133,8 +134,8 @@ function openAdd() {
 }
 function closeSheet() { $('sheet-root').innerHTML = ''; go('home'); }
 function addTab(t) {
-  for (const x of ['exp', 'con', 'set']) $('seg-' + x).classList.toggle('on', x === t);
-  ({ exp: fExpense, con: fContrib, set: fSettle })[t]();
+  for (const x of ['exp', 'con', 'set', 'iou']) $('seg-' + x).classList.toggle('on', x === t);
+  ({ exp: fExpense, con: fContrib, set: fSettle, iou: fIou })[t]();
 }
 const memberOpts = (sel) => MEMBERS.map((m) => `<option value="${m.id}"${m.id === sel ? ' selected' : ''}>${esc(m.name)}</option>`).join('');
 
@@ -226,6 +227,56 @@ async function saveSettle() {
     const toId = MEMBERS.find((m) => m.name === d.toName)?.id;
     await api('POST', '/api/settle', { fromId: ME.id, toId, amount: $('s-amt').value, allocId: d.allocId });
     closeSheet();
+  } catch (e) { alert(e.message); }
+}
+
+// --- personal IOU: "X owes me $Y", outside the house fund ---
+function fIou() {
+  const others = MEMBERS.filter((m) => m.id !== ME.id);
+  $('add-body').innerHTML = `
+    <label>Who owes?</label><select id="iou-from">${memberOpts(ME.id)}</select>
+    <label>To whom?</label><select id="iou-to">${memberOpts(others[0]?.id)}</select>
+    <label>Amount ($)</label><input id="iou-amt" type="number" step="0.01" min="0" placeholder="0.00">
+    <label>What for? (optional)</label><input id="iou-note" placeholder="pizza, concert ticket, …">
+    <button class="btn green" onclick="saveIou()">Record IOU</button>
+    <p class="muted">Personal loan between roommates — separate from the house fund.</p>`;
+}
+async function saveIou() {
+  try {
+    await api('POST', '/api/ious', {
+      fromId: $('iou-from').value, toId: $('iou-to').value,
+      amount: $('iou-amt').value, note: $('iou-note').value,
+    });
+    closeSheet(); go('ious');
+  } catch (e) { alert(e.message); }
+}
+async function vIous() {
+  const ious = await api('GET', '/api/ious');
+  const mine = (i) => i.fromId === ME.id || i.toId === ME.id;
+  const open = ious.filter((i) => !i.settled);
+  const iOwe = open.filter((i) => i.fromId === ME.id);
+  const owedMe = open.filter((i) => i.toId === ME.id);
+  const other = open.filter((i) => !mine(i));
+  const done = ious.filter((i) => i.settled);
+  const row = (i) => `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)">
+      <span><b>${esc(i.from)} owes ${esc(i.to)}</b> ${fmt$(i.openCents)}<br>
+      <span class="muted">${i.date}${i.note ? ' · ' + esc(i.note) : ''}</span></span>
+      ${mine(i) ? `<button class="btn green small" onclick="settleIouUI('${i.id}',${i.openCents},'${esc(i.from)}')">Settle</button>` : ''}</div>`;
+  let html = `<div class="card"><div class="row"><h3>IOUs</h3>
+    <button class="btn green small" onclick="openAdd();addTab('iou')">+ Record IOU</button></div>`;
+  html += `<h3 style="margin-top:12px">You owe</h3>` + (iOwe.map(row).join('') || '<p class="muted">Nothing 🎉</p>');
+  html += `<h3 style="margin-top:12px">Owed to you</h3>` + (owedMe.map(row).join('') || '<p class="muted">Nothing 🎉</p>');
+  if (other.length) html += `<h3 style="margin-top:12px">Between others</h3>` + other.map(row).join('');
+  if (done.length) html += `<h3 style="margin-top:12px">Settled</h3>` + done.slice(-10).reverse().map((i) =>
+    `<div class="muted" style="padding:4px 0">${esc(i.from)} → ${esc(i.to)} ${fmt$(i.cents)} ✓</div>`).join('');
+  $('view').innerHTML = html + `</div>`;
+}
+async function settleIouUI(id, openCents, from) {
+  const v = prompt(`${from} still owes ${fmt$(openCents)}. How much is being paid?`, (openCents / 100).toFixed(2));
+  if (v === null) return;
+  try {
+    await api('POST', `/api/ious/${id}/settle`, { amount: v });
+    vIous();
   } catch (e) { alert(e.message); }
 }
 

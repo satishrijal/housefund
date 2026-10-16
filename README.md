@@ -2,9 +2,11 @@
 
 One house. Shared expenses. Zero confusion.
 
-A mobile-first household finance app for roommates: monthly grocery fund,
-Splitwise-style expense splitting with an auditable ledger, bills, shopping
-list, inventory, receipt photos, and one-tap backups.
+A mobile-first household finance app for roommates: monthly grocery fund
+with an adjustable per-month collection target, Splitwise-style expense
+splitting with an auditable ledger, personal IOUs between roommates, bills,
+shopping list, inventory, receipt photos with free on-server OCR, and
+one-tap backups plus weekly Google Drive auto-backup.
 
 ## How it works
 

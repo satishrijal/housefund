@@ -26,6 +26,7 @@ async function showPanel() {
   const s = await api('GET', '/api/admin/status');
   $('a-status').innerHTML = `Storage: <b>${esc(s.backend)}</b> · ${s.members} members · ${s.txns} ledger entries · target $${(s.monthlyTarget / 100).toFixed(0)}/member`;
   $('a-target').value = (s.monthlyTarget / 100).toFixed(0);
+  $('a-target-month').textContent = '· ' + s.month;
   const members = await api('GET', '/api/admin/members');
   $('a-members').innerHTML = members.map((m) => `<tr><td>${esc(m.name)}${m.mustChangePw ? ' <span class="pill warn">temp pw</span>' : ''}</td>
     <td class="muted">${esc(m.username)}</td>
@@ -63,8 +64,11 @@ async function aDel(id, name) {
 }
 
 async function aTarget() {
-  try { await api('POST', '/api/admin/target', { target: $('a-target').value }); showPanel(); }
-  catch (e) { alert(e.message); }
+  try {
+    const month = new Date().toISOString().slice(0, 7);
+    await api('POST', '/api/admin/target', { target: $('a-target').value, month });
+    showPanel();
+  } catch (e) { alert(e.message); }
 }
 
 boot();

@@ -141,3 +141,46 @@ test('money is integer cents — no float drift', () => {
   assert.equal(s.contribPaid, 10000);
   assert.equal(s.contribDue, 0);
 });
+
+test('monthly target is per-month: raise October to $150 without touching November', () => {
+  const { ledger, members } = house5();
+  L.setMonthlyTarget(ledger, '2026-10', 15000, 'admin');
+  const oct = L.houseSummary(ledger, members, '2026-10');
+  assert.equal(oct.target, 75000); // 5 x $150
+  const nov = L.houseSummary(ledger, members, '2026-11');
+  assert.equal(nov.target, 50000); // still default $100 x 5
+  const david = L.memberSummary(ledger, members, 'david', '2026-10');
+  assert.equal(david.contribDue, 15000);
+});
+
+test('IOU: David owes Alex $30 — shows in both summaries, partial + full settle', () => {
+  const { ledger, members } = house5();
+  const iou = L.addIou(ledger, { fromId: 'david', toId: 'alex', cents: 3000, note: 'pizza', by: 'david' });
+  assert.equal(iou.openCents, 3000);
+  let d = L.memberSummary(ledger, members, 'david', '2026-10');
+  assert.equal(d.iOwe.length, 1);
+  assert.equal(d.iOwe[0].to, 'Alex');
+  assert.equal(d.iOwe[0].cents, 3000);
+  let a = L.memberSummary(ledger, members, 'alex', '2026-10');
+  assert.equal(a.owedToMe.length, 1);
+  assert.equal(a.owedToMe[0].from, 'David');
+  // partial payment
+  L.settleIou(ledger, { iouId: iou.id, cents: 1000, by: 'david' });
+  d = L.memberSummary(ledger, members, 'david', '2026-10');
+  assert.equal(d.iOwe[0].cents, 2000);
+  // overpay rejected
+  assert.throws(() => L.settleIou(ledger, { iouId: iou.id, cents: 2500, by: 'david' }), /too much/);
+  // full settle clears both sides
+  L.settleIou(ledger, { iouId: iou.id, cents: 2000, by: 'david' });
+  d = L.memberSummary(ledger, members, 'david', '2026-10');
+  a = L.memberSummary(ledger, members, 'alex', '2026-10');
+  assert.equal(d.iOwe.length, 0);
+  assert.equal(a.owedToMe.length, 0);
+});
+
+test('IOU validation: no self-IOUs, positive amounts only', () => {
+  const { ledger } = house5();
+  assert.throws(() => L.addIou(ledger, { fromId: 'alex', toId: 'alex', cents: 1000 }), /themself/);
+  assert.throws(() => L.addIou(ledger, { fromId: 'alex', toId: 'ben', cents: 0 }), /positive/);
+  assert.throws(() => L.addIou(ledger, { fromId: 'alex', toId: 'ben' }), /positive/);
+});
